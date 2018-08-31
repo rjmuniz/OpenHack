@@ -27,7 +27,6 @@ namespace RCON_API
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton<KubeHelper>();
-            services.AddCors();
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
 
@@ -42,6 +41,13 @@ namespace RCON_API
             {
                 app.UseHsts();
             }
+
+            app.UseCors(builder =>
+                builder.AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials()
+            );
 
             app.UseHttpsRedirection();
             app.UseMvc();
