@@ -27,6 +27,7 @@ namespace RCON_API
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton<KubeHelper>();
+            services.AddCors();
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
 
