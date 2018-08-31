@@ -27,5 +27,11 @@ namespace RCON_API.Controllers
         {
             return _client.GetServicePods();
         }
+
+        [HttpPost]
+        public ActionResult<MinecraftPod> Create([FromBody] string podName)
+        {
+            return _client.AddServicePod(podName);
+        }
     }
 }
