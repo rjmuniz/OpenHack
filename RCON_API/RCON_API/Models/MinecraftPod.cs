@@ -26,6 +26,10 @@ namespace RCON_API.Models
 
         public async Task<MinecraftPod> GetRCON()
         {
+            if (_ip == null)
+            {
+                return this;
+            }
             RestClient client = new RestClient($"{MC_STATUS_BASE_ENDPOINT}{_ip}");
             RestRequest request = new RestRequest(Method.GET);
 

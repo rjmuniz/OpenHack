@@ -46,7 +46,21 @@ namespace RCON_API.Helpers
                     var podsList = list.Items
                         .Where(i => i.Metadata.Name != "kubernetes")
                         .Select(i =>
-                            new MinecraftPod(i.Status.LoadBalancer.Ingress[0].Ip, i.Metadata.Name))
+                        {
+                            try
+                            {
+                                string ip = (
+                                    i.Status.LoadBalancer.Ingress != null && 
+                                    i.Status.LoadBalancer.Ingress[0] != null 
+                                        ? i.Status.LoadBalancer.Ingress[0].Ip 
+                                        : null);
+                                return new MinecraftPod(ip, i.Metadata.Name);
+                            } catch (Exception e)
+                            {
+                                return new MinecraftPod(null, i.Metadata.Name);
+                            }
+                            
+                        })
                         .ToList();
 
                     List<Task> tasks = new List<Task>();
