@@ -3,6 +3,7 @@ using k8s.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Rest;
 using RCON_API.Models;
 using System;
 using System.Collections.Generic;
@@ -67,7 +68,91 @@ namespace RCON_API.Helpers
                 using (IKubernetes client = new Kubernetes(config))
                 {
                     V1DeleteOptions options = new V1DeleteOptions() { };
-                    client.DeleteNamespacedDeployment1(options, podName, DefaultNamespace);
+                    IList<V1Pod> podsList = client.ListNamespacedPod(DefaultNamespace).Items;
+                    IList<V1beta1ReplicaSet> replicaSetsList = client.ListNamespacedReplicaSet2(DefaultNamespace).Items;
+                    List<string> replicaSetDeleteList = new List<string>();
+                    List<string> podsDeleteList = new List<string>();
+                    List<string> pvcDeleteList = new List<string>();
+                    V1Pod pod = null;
+
+                    foreach (V1Pod podItem in podsList)
+                    {
+                        string containerName = podItem.Spec.Containers[0].Name;
+                        if (containerName == podName)
+                        {
+                            var volumes = podItem.Spec.Volumes;
+                            foreach (var replicaSet in replicaSetsList)
+                            {
+                                if (replicaSet.Spec.Selector.MatchLabels["app"] == podName)
+                                {
+                                    replicaSetDeleteList.Add(replicaSet.Metadata.Name);
+                                }
+                            }
+                            foreach (var volume in volumes)
+                            {
+                                if (volume.PersistentVolumeClaim != null)
+                                {
+                                    pvcDeleteList.Add(volume.PersistentVolumeClaim.ClaimName);
+                                }
+                            }
+                            podsDeleteList.Add(podItem.Metadata.Name);
+                        }
+                    }
+
+                    try
+                    {
+                        V1Status status = client.DeleteNamespacedDeployment1(options, podName, DefaultNamespace);
+                    }
+                    catch (HttpOperationException e)
+                    {
+
+                    }
+
+                    foreach (string replicaSetName in replicaSetDeleteList)
+                    {
+                        try
+                        {
+                            client.DeleteNamespacedReplicaSet2(options, replicaSetName, DefaultNamespace);
+                        } catch(HttpOperationException e)
+                        {
+
+                        }
+                    }
+                    foreach(string podNameToDelete in podsDeleteList)
+                    {
+                        try
+                        {
+                            client.DeleteNamespacedPod(options, podNameToDelete, DefaultNamespace);
+                        }
+                        catch (HttpOperationException e)
+                        {
+
+                        }
+                    }
+
+                    foreach (string pvcName in pvcDeleteList)
+                    {
+                        try
+                        {
+                            client.DeleteNamespacedPersistentVolumeClaim(options, pvcName, DefaultNamespace);
+                        }
+                        catch (HttpOperationException e)
+                        {
+
+                        }
+                    }
+
+                    try
+                    {
+                        client.DeleteNamespacedService(options, $"{podName}-lb", DefaultNamespace);
+                    }
+                    catch (HttpOperationException e)
+                    {
+
+                    }
+                    
+
+                    options = null;
                 }
             }
         }
