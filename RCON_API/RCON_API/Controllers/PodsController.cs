@@ -23,9 +23,9 @@ namespace RCON_API.Controllers
 
         // GET api/values
         [HttpGet]
-        public ActionResult<IEnumerable<MinecraftPod>> Get()
+        public async Task<ActionResult<IEnumerable<MinecraftPod>>> Get()
         {
-            return _client.GetServicePods();
+            return await _client.GetServicePods();
         }
 
         [HttpPost]

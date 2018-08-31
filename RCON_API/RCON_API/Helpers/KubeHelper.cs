@@ -28,7 +28,7 @@ namespace RCON_API.Helpers
                 return File.Open(_hostingEnvironment.ContentRootPath + "/kubeConfig", FileMode.Open);
             }
         }
-        public List<MinecraftPod> GetServicePods()
+        public async Task<List<MinecraftPod>> GetServicePods()
         {
             using (Stream stream = KubeConfigStream)
             {
@@ -40,13 +40,19 @@ namespace RCON_API.Helpers
                     var list = client.ListNamespacedService(DefaultNamespace);
 
 
-                    return list.Items
+                    var podsList = list.Items
                         .Where(i => i.Metadata.Name != "kubernetes")
                         .Select(i =>
                             new MinecraftPod(i.Status.LoadBalancer.Ingress[0].Ip, i.Metadata.Name))
                         .ToList();
 
-
+                    List<Task> tasks = new List<Task>();
+                    foreach (var pod in podsList)
+                    {
+                        tasks.Add(pod.GetRCON());
+                    }
+                    await Task.WhenAll(tasks.ToArray());
+                    return podsList;
                 }
             }
         }
