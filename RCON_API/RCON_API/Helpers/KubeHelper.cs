@@ -15,6 +15,7 @@ namespace RCON_API.Helpers
     public class KubeHelper
     {
         private const string DefaultNamespace = "default";
+        private const string SuffixLoadBalancer = "-lb";
         private readonly IHostingEnvironment _hostingEnvironment;
 
         public KubeHelper(IHostingEnvironment hostingEnvironment)
@@ -59,7 +60,16 @@ namespace RCON_API.Helpers
 
         internal void DeleteServicePod(string podName)
         {
-            throw new NotImplementedException();
+            using (Stream stream = KubeConfigStream)
+            {
+                var config = KubernetesClientConfiguration.BuildConfigFromConfigFile(stream);
+
+                using (IKubernetes client = new Kubernetes(config))
+                {
+                    V1DeleteOptions options = new V1DeleteOptions() { };
+                    client.DeleteNamespacedDeployment1(options, podName, DefaultNamespace);
+                }
+            }
         }
 
         internal void AddServicePod(string podName)
@@ -112,7 +122,7 @@ namespace RCON_API.Helpers
                     };
                     var loadBalancer = new V1Service("v1", "Service")
                     {
-                        Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "name", podName + "-lb" } }),
+                        Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "name", podName + SuffixLoadBalancer } }),
                         Spec = new V1ServiceSpec
                         {
                             Type = "LoadBalancer",
@@ -139,7 +149,7 @@ namespace RCON_API.Helpers
                     client.CreateNamespacedService(loadBalancer, DefaultNamespace);
                 }
             }
-           
+
         }
     }
 }

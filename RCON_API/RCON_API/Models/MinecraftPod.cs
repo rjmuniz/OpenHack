@@ -15,16 +15,16 @@ namespace RCON_API.Models
         public MinecraftPod(string ip, string name)
         {
             _ip = ip;
-            this.Name = name;
+            this.Name = name.Replace("-lb", "");
             this.Endpoints = new MinecraftEndpoints(ip);
             this.Status = null;
         }
-        public string  Name { get; set; }
+        public string Name { get; set; }
         public MinecraftEndpoints Endpoints { get; }
 
         public GameStatus Status { get; set; }
 
-        public async Task<MinecraftPod> GetRCON ()
+        public async Task<MinecraftPod> GetRCON()
         {
             RestClient client = new RestClient($"{MC_STATUS_BASE_ENDPOINT}{_ip}");
             RestRequest request = new RestRequest(Method.GET);
