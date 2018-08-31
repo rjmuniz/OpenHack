@@ -1,4 +1,5 @@
 ﻿using k8s;
+using k8s.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Mvc;
@@ -50,56 +51,89 @@ namespace RCON_API.Helpers
             }
         }
 
-        internal ActionResult<MinecraftPod> AddServicePod(string podName)
+        internal void DeleteServicePod(string podName)
         {
             throw new NotImplementedException();
+        }
+
+        internal void AddServicePod(string podName)
+        {
             using (Stream stream = KubeConfigStream)
             {
                 var config = KubernetesClientConfiguration.BuildConfigFromConfigFile(stream);
 
                 using (IKubernetes client = new Kubernetes(config))
                 {
-                    //var pod = new k8s.Models.V1Pod()
-                    //{
-                    //    ApiVersion= "apps/v1beta1",
-                    //    Kind = "Deployment",
-                    //    Metadata = new k8s.Models.V1ObjectMeta() {  Name= podName },
-                    //    Spec = new k8s.Models.V1PodSpec()
-                    //    {
-                    //        Containers = new C
-                    //    }
-                    //}
-                    
+                    var deployment = new Appsv1beta1Deployment("apps/v1beta1", "Deployment")
+                    {
+                        Spec = new Appsv1beta1DeploymentSpec()
+                        {
+                            Template = new V1PodTemplateSpec()
+                            {
+                                Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "app", "minecraft" } }),
+                                Spec = new V1PodSpec()
+                                {
+                                    Containers = new k8s.Models.V1Container[]{
+                                   new V1Container
+                                       {
+                                           Name = "minecraft",
+                                           Image = "openhackteam5.azurecr.io/minecraft-server:2.0",
+                                           VolumeMounts = new V1VolumeMount[]
+                                           {
+                                               new k8s.Models.V1VolumeMount
+                                               {
+                                                    Name= "volume",
+                                                    MountPath= "/data"
+                                               }
+                                           },
+                                           Ports =  new V1ContainerPort[]
+                                           {
+                                               new V1ContainerPort(25565, name:"port25565"),
+                                               new V1ContainerPort(25575, name:"port25575")
+                                           },
+                                           Env = new V1EnvVar[]{new V1EnvVar("EULA",true.ToString())}
+                                       }
+                                   },
+                                    Volumes = new V1Volume[]
+                                    {
+                                        new V1Volume("volume",persistentVolumeClaim: new V1PersistentVolumeClaimVolumeSource("azurefile"))
+                                    },
+                                    ImagePullSecrets = new V1LocalObjectReference[] { new V1LocalObjectReference("acr-auth") }
 
-//spec:
-//  template:
-//                    metadata:
-//                    labels:
-//                    app: minecraft
-//                spec:
-//      containers:
-//                    -name: minecraft
-//                     image: openhackteam5.azurecr.io / minecraft - server:2.0
-//        volumeMounts:
-//                    -mountPath: "/data"
-//          name: volume
-//        ports:
-//          -name: port25565
-//           containerPort: 25565
-//         - name: port25575
-//           containerPort: 25575
-//        env:
-//                    -name: EULA
-//                     value: "TRUE"
-//      volumes:
-//                    -name: volume
-//                     persistentVolumeClaim:
-//            claimName: azurefile
-//      imagePullSecrets:
-//      -name: acr - auth
-                 //   client.CreateNamespacedPod(pod, DefaultNamespace);
+                                }
+                            }
+                        }
+                    };
+                    var loadBalancer = new V1Service("v1", "Service")
+                    {
+                        Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "name", podName + "-lb" } }),
+                        Spec = new V1ServiceSpec
+                        {
+                            Type = "LoadBalancer",
+                            Ports = new V1ServicePort[]{
+                                  new   V1ServicePort(25565,"port25565",targetPort: 25565),
+                                  new   V1ServicePort(25575,"port25575",targetPort: 25575)
+                              },
+                            Selector = new Dictionary<string, string> { { "app", "minecraft" } }
+                        }
+                    };
+                    var persistentVolumeClaim = new V1PersistentVolumeClaim("v1", "PersistentVolumeClaim")
+                    {
+                        Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "name", podName + "_pvc" } }),
+                        Spec = new V1PersistentVolumeClaimSpec
+                        {
+                            AccessModes = new string[] { "ReadWriteMany" },
+                            StorageClassName = "azurefile",
+                            Resources = new V1ResourceRequirements(requests: new Dictionary<string, ResourceQuantity> { { "name", new ResourceQuantity("5Gi") } })
+                        }
+                    };
+
+                    client.CreateNamespacedPersistentVolumeClaim(persistentVolumeClaim, DefaultNamespace);
+                    client.CreateNamespacedDeployment1(deployment, DefaultNamespace);
+                    client.CreateNamespacedService(loadBalancer, DefaultNamespace);
                 }
             }
+           
         }
     }
 }

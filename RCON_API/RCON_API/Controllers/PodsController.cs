@@ -29,9 +29,20 @@ namespace RCON_API.Controllers
         }
 
         [HttpPost]
-        public ActionResult<MinecraftPod> Create([FromBody] string podName)
+        public ActionResult Create([FromBody] string podName)
         {
-            return _client.AddServicePod(podName);
+            if (string.IsNullOrEmpty(podName)) return BadRequest("PodName is null or empty");
+            _client.AddServicePod(podName);
+            return Ok();
+        }
+
+
+        [HttpDelete  ]
+        public ActionResult Delete([FromBody] string podName)
+        {
+            if (string.IsNullOrEmpty(podName)) return BadRequest("PodName is null or empty");
+            _client.DeleteServicePod(podName);
+            return Ok();
         }
     }
 }
