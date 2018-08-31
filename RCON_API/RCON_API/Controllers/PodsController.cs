@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Rest;
 using RCON_API.Helpers;
 using RCON_API.Models;
 
@@ -32,12 +33,23 @@ namespace RCON_API.Controllers
         public ActionResult Create([FromBody] string podName)
         {
             if (string.IsNullOrEmpty(podName)) return BadRequest("PodName is null or empty");
-            _client.AddServicePod(podName);
+            try
+            {
+                _client.AddServicePod(podName);
+            }
+            catch (HttpOperationException httpEx)
+            {
+                return BadRequest(httpEx.Response.Content);
+            }            
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
             return Ok();
         }
 
 
-        [HttpDelete  ]
+        [HttpDelete]
         public ActionResult Delete([FromBody] string podName)
         {
             if (string.IsNullOrEmpty(podName)) return BadRequest("PodName is null or empty");
