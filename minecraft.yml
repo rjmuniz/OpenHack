@@ -1,0 +1,48 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: minecraft
+spec:
+  template:
+    metadata:
+      labels:
+        app: minecraft
+    spec:
+      containers:
+      - name: minecraft
+        image: openhackteam5.azurecr.io/minecraft-server:2.0
+        volumeMounts:
+        - mountPath: "/data"
+          name: volume
+        ports:
+          - name: port25565
+            containerPort: 25565
+          - name: port25575
+            containerPort: 25575
+        env:
+        - name: EULA
+          value: "TRUE"
+      volumes:
+        - name: volume
+          persistentVolumeClaim:
+            claimName: azurefile
+      imagePullSecrets:
+      - name: acr-auth
+     
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: minecraft-lb
+spec:
+ type: LoadBalancer
+ ports:
+ - name: port25565
+   port: 25565
+   targetPort: 25565
+ - name: port25575
+   port: 25575
+   targetPort: 25575
+ selector:
+   app: minecraft
+
