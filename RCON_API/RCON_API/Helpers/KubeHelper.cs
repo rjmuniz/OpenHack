@@ -17,6 +17,7 @@ namespace RCON_API.Helpers
     {
         private const string DefaultNamespace = "default";
         private const string SuffixLoadBalancer = "-lb";
+        private const string SuffixPVC = "-pvc";
         private readonly IHostingEnvironment _hostingEnvironment;
 
         public KubeHelper(IHostingEnvironment hostingEnvironment)
@@ -27,7 +28,7 @@ namespace RCON_API.Helpers
         {
             get
             {
-                return File.Open(_hostingEnvironment.ContentRootPath + "/kubeConfig", FileMode.Open);
+                return File.Open(_hostingEnvironment.ContentRootPath + "/kubeConfig", FileMode.Open, FileAccess.Read);
             }
         }
         public async Task<List<MinecraftPod>> GetServicePods()
@@ -159,6 +160,8 @@ namespace RCON_API.Helpers
 
         internal void AddServicePod(string podName)
         {
+            podName = podName.ToLower();
+            var appLabel = new Dictionary<string, string> { { "app", podName } };
             using (Stream stream = KubeConfigStream)
             {
                 var config = KubernetesClientConfiguration.BuildConfigFromConfigFile(stream);
@@ -167,17 +170,18 @@ namespace RCON_API.Helpers
                 {
                     var deployment = new Appsv1beta1Deployment("apps/v1beta1", "Deployment")
                     {
+                        Metadata = new V1ObjectMeta() { Name = podName },
                         Spec = new Appsv1beta1DeploymentSpec()
                         {
                             Template = new V1PodTemplateSpec()
                             {
-                                Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "app", "minecraft" } }),
+                                Metadata = new V1ObjectMeta() { Labels = appLabel },
                                 Spec = new V1PodSpec()
                                 {
                                     Containers = new k8s.Models.V1Container[]{
                                    new V1Container
                                        {
-                                           Name = "minecraft",
+                                           Name = podName,
                                            Image = "openhackteam5.azurecr.io/minecraft-server:2.0",
                                            VolumeMounts = new V1VolumeMount[]
                                            {
@@ -197,17 +201,18 @@ namespace RCON_API.Helpers
                                    },
                                     Volumes = new V1Volume[]
                                     {
-                                        new V1Volume("volume",persistentVolumeClaim: new V1PersistentVolumeClaimVolumeSource("azurefile"))
+                                        new V1Volume("volume",persistentVolumeClaim: new V1PersistentVolumeClaimVolumeSource(podName + SuffixPVC))
                                     },
                                     ImagePullSecrets = new V1LocalObjectReference[] { new V1LocalObjectReference("acr-auth") }
 
                                 }
+
                             }
                         }
                     };
                     var loadBalancer = new V1Service("v1", "Service")
                     {
-                        Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "name", podName + SuffixLoadBalancer } }),
+                        Metadata = new V1ObjectMeta { Name = podName + SuffixLoadBalancer },
                         Spec = new V1ServiceSpec
                         {
                             Type = "LoadBalancer",
@@ -215,20 +220,23 @@ namespace RCON_API.Helpers
                                   new   V1ServicePort(25565,"port25565",targetPort: 25565),
                                   new   V1ServicePort(25575,"port25575",targetPort: 25575)
                               },
-                            Selector = new Dictionary<string, string> { { "app", "minecraft" } }
+                            Selector = appLabel
                         }
                     };
-                    var persistentVolumeClaim = new V1PersistentVolumeClaim("v1", "PersistentVolumeClaim")
+
+
+                    var persistentVolumeClaim = new V1PersistentVolumeClaim()
                     {
-                        Metadata = new V1ObjectMeta(new Dictionary<string, string> { { "name", podName + "_pvc" } }),
+                        Metadata = new V1ObjectMeta() { Name = podName + SuffixPVC, NamespaceProperty = DefaultNamespace },
                         Spec = new V1PersistentVolumeClaimSpec
                         {
                             AccessModes = new string[] { "ReadWriteMany" },
                             StorageClassName = "azurefile",
-                            Resources = new V1ResourceRequirements(requests: new Dictionary<string, ResourceQuantity> { { "name", new ResourceQuantity("5Gi") } })
-                        }
+                            Resources = new V1ResourceRequirements(requests: new Dictionary<string, ResourceQuantity> { { "storage", new ResourceQuantity("5Gi") } })
+                        },
+                        Status = new V1PersistentVolumeClaimStatus()
                     };
-
+                    var pvcs = client.ListDeploymentForAllNamespaces1();
                     client.CreateNamespacedPersistentVolumeClaim(persistentVolumeClaim, DefaultNamespace);
                     client.CreateNamespacedDeployment1(deployment, DefaultNamespace);
                     client.CreateNamespacedService(loadBalancer, DefaultNamespace);

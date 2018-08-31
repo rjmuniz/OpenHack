@@ -23,9 +23,16 @@
   <ItemGroup>
     <PackageReference Include="KubernetesClient" Version="1.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Rest.ClientRuntime" Version="2.3.13" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.0.1916590" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="2.1.1" />
     <PackageReference Include="RestSharp" Version="106.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="KubernetesClient">
+      <HintPath>..\..\kubernetes-client\csharp\src\KubernetesClient\bin\Debug\netcoreapp2.1\KubernetesClient.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
